@@ -1,34 +1,72 @@
 const express = require('express');
-const fs = require('fs');
+const bodyParser = require('body-parser');
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
 
-const studentData = JSON.parse(fs.readFileSync('./data.json', 'utf-8'));
+let books = [];
 
-app.post('/students/above-threshold', (req, res) => {
-  const { threshold } = req.body;
+// Create a new book
+app.post('/books', (req, res) => {
+    const { book_id, title, author, genre, year, copies } = req.body;
 
-  if (threshold === undefined || typeof threshold !== 'number') {
-    return res
-      .status(400)
-      .json({ error: "'threshold' must be a number and is required" });
-  }
+    if (!book_id || !title || !author || !genre || !year || !copies) {
+        return res.status(400).json({ error: 'All book fields are required.' });
+    }
 
-  const filteredStudents = studentData
-    .filter((student) => student.total > threshold)
-    .map((student) => ({
-      name: student.name,
-      total: student.total,
-    }));
+    if (books.some(book => book.book_id === book_id)) {
+        return res.status(400).json({ error: 'Book with this ID already exists.' });
+    }
 
-  res.json({
-    count: filteredStudents.length,
-    students: filteredStudents,
-  });
+    const newBook = { book_id, title, author, genre, year, copies };
+    books.push(newBook);
+    res.status(201).json(newBook);
 });
 
-const PORT = 3000;
+// Retrieve all books
+app.get('/books', (req, res) => {
+    res.status(200).json(books);
+});
+
+// Retrieve a specific book by ID
+app.get('/books/:id', (req, res) => {
+    const book = books.find(b => b.book_id === req.params.id);
+
+    if (!book) {
+        return res.status(404).json({ error: 'Book not found.' });
+    }
+
+    res.status(200).json(book);
+});
+
+// Update a book
+app.put('/books/:id', (req, res) => {
+    const bookIndex = books.findIndex(b => b.book_id === req.params.id);
+
+    if (bookIndex === -1) {
+        return res.status(404).json({ error: 'Book not found.' });
+    }
+
+    const updatedBook = { ...books[bookIndex], ...req.body };
+    books[bookIndex] = updatedBook;
+
+    res.status(200).json(updatedBook);
+});
+
+// Delete a book
+app.delete('/books/:id', (req, res) => {
+    const bookIndex = books.findIndex(b => b.book_id === req.params.id);
+
+    if (bookIndex === -1) {
+        return res.status(404).json({ error: 'Book not found.' });
+    }
+
+    books.splice(bookIndex, 1);
+    res.status(200).json({ message: 'Book deleted successfully.' });
+});
+
+// Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
